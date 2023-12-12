@@ -3,6 +3,7 @@ log/
 build/
 color_images/
 gray_images/
+gray_images_labeled/
 
 # Ignore generated docs
 *.dox
