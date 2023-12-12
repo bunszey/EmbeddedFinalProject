@@ -2,6 +2,7 @@ install/
 log/
 build/
 color_images/
+gray_images/
 
 # Ignore generated docs
 *.dox
