@@ -5,6 +5,7 @@ build/
 # Ignore generated docs
 *.dox
 *.wikidoc
+*.zip
 
 # eclipse stuff
 .project
