@@ -31,18 +31,20 @@ class ImageSubscriber : public rclcpp::Node
 
 		int i = 0;
         std::string directory;
+		cv::Mat gray_;
 
         void onImageMsg(const sensor_msgs::msg::Image::SharedPtr msg) 
 		{
 			RCLCPP_INFO(this->get_logger(), "Received image!");
 
 			cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, msg->encoding);
-			
-			cv::Mat img_rgb;
-			cv::cvtColor(cv_ptr->image, img_rgb, cv::COLOR_YUV2RGB_YUYV);
+			cv::Mat img = cv_ptr->image;
+			std::vector<cv::Mat> channels(2);
+			cv::split(img, channels);
+			gray_ = channels[0];
 
 			std::string filename = directory + "img" + std::to_string(i++) + ".png";
-			cv::imwrite(filename, img_rgb);
+			cv::imwrite(filename, gray_);
 		}
 
 };
