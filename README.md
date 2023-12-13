@@ -35,3 +35,8 @@ ros2 topic pub -1 /set_position dynamixel_sdk_custom_interfaces/SetPosition "{id
 ```bash
 ros2 run usb_cam usb_cam_node_exe --ros-args -p video_device:=/dev/video2 -p image_width:=320 -p image_height:=240
 ```
+
+## Terminal send ROS message to set position
+```bash
+ros2 topic pub /gotopos std_msgs/Int32 "{data: 32}"
+```

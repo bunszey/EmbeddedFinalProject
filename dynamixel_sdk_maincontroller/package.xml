@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>dynamixel_sdk_maincontroller</name>
+  <version>1.1.11</version>
+  <description>ROS2 main controlling ROBOTIS DYNAMIXEL motor over ROS and getting images</description>
+  <license>Apache 2.0</license>
+  <maintainer email="labun19@student.sdu.dk">Lars Bunszey</maintainer>
+  <url type="website"></url>
+  <url type="repository"></url>
+  <url type="bugtracker"></url>
+  <author email="labun19@student.sdu.dk">Lars Bunszey</author>
+  
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>dynamixel_sdk</depend>
+  <depend>dynamixel_sdk_custom_interfaces</depend>
+  
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
