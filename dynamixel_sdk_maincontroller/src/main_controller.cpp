@@ -15,7 +15,7 @@
 #include "rcutils/cmdline_parser.h"
 #include "std_msgs/msg/string.hpp"
 #include "std_msgs/msg/int32.hpp"
-#define TIMEPERIOD 500
+#define TIMEPERIOD 500000 // microseconds 
 
 using std::placeholders::_1;
 using namespace std::chrono_literals;
@@ -44,7 +44,7 @@ class MainController : public rclcpp::Node
 			RCLCPP_INFO(this->get_logger(), "Starting camera subscriber");
 			camera_subscription_ = this->create_subscription<sensor_msgs::msg::Image>("/image_raw", 10,	std::bind(&MainController::onImageMsg, this, std::placeholders::_1), options_camsub);
 
-			directory = std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + "/";
+			directory = "gray_images/" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + "/";
 			mkdir(directory.c_str(), 0777);
 		}
 
@@ -91,7 +91,6 @@ class MainController : public rclcpp::Node
 			request->id = motorID;
 
 			while (pos < message.position - 3 || pos > message.position + 3) {
-				usleep(TIMEPERIOD);
 
 				while (!client_->wait_for_service(1s)) {
 					if (!rclcpp::ok()) {
@@ -109,7 +108,7 @@ class MainController : public rclcpp::Node
 				}
 				
 			}
-
+			usleep(TIMEPERIOD);
 			std::string filename = directory + "img" + std::to_string(i++) + "_" + std::to_string(pos) +".png";
 			cv::imwrite(filename, gray_);
 
