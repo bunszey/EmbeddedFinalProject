@@ -6,6 +6,7 @@
 #include <chrono>
 #include <filesystem>
 #include <sys/stat.h>
+#include<unistd.h> 
 
 #include "dynamixel_sdk/dynamixel_sdk.h"
 #include "dynamixel_sdk_custom_interfaces/msg/set_position.hpp"
@@ -14,6 +15,8 @@
 #include "rcutils/cmdline_parser.h"
 #include "std_msgs/msg/string.hpp"
 #include "std_msgs/msg/int32.hpp"
+#define TIMEPERIOD 500
+
 using std::placeholders::_1;
 using namespace std::chrono_literals;
 
@@ -54,7 +57,7 @@ class MainController : public rclcpp::Node
 		rclcpp::Client<dynamixel_sdk_custom_interfaces::srv::GetPosition>::SharedPtr client_;
 		rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr camera_subscription_;
 
-		int positions[7] = {307, 375, 442, 512, 582, 650, 717};
+		int positions[7] = {310, 377, 446, 517, 584, 655, 722};
 		int motorID = 0;
 		std::string directory;
 		cv::Mat gray_;
@@ -87,8 +90,9 @@ class MainController : public rclcpp::Node
 			auto request = std::make_shared<dynamixel_sdk_custom_interfaces::srv::GetPosition::Request>();
 			request->id = motorID;
 
-			while (pos < message.position - 5 || pos > message.position + 5) {
-			
+			while (pos < message.position - 3 || pos > message.position + 3) {
+				usleep(TIMEPERIOD);
+
 				while (!client_->wait_for_service(1s)) {
 					if (!rclcpp::ok()) {
 					RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
