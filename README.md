@@ -38,5 +38,5 @@ ros2 run usb_cam usb_cam_node_exe --ros-args -p video_device:=/dev/video2 -p ima
 
 ## Terminal send ROS message to set position
 ```bash
-ros2 topic pub /gotopos std_msgs/Int32 "{data: 32}"
+ros2 topic pub -1 /gotopos std_msgs/Int32 "{data: 1}"
 ```
