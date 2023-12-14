@@ -55,7 +55,7 @@ class MainController : public rclcpp::Node
 
         void onImageMsg(const sensor_msgs::msg::Image::SharedPtr msg) 
 		{
-			RCLCPP_INFO(this->get_logger(), "Received image!");
+			//RCLCPP_INFO(this->get_logger(), "Received image!");
 
 			cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, msg->encoding);
 			cv::Mat img = cv_ptr->image;
