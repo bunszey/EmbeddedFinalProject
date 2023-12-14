@@ -5,6 +5,9 @@ color_images/
 gray_images/
 gray_images_labeled/
 
+# Ignore vscode files
+.vscode
+
 # Ignore generated docs
 *.dox
 *.wikidoc
