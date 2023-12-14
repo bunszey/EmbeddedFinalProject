@@ -47,6 +47,8 @@
 #define ADDR_GOAL_POSITION 30
 #define ADDR_PRESENT_POSITION 36
 #define ADDR_MOVEMENT_SPEED 32
+#define ADDR_COMPLIANCE_MARGIN_CW 26
+#define ADDR_COMPLIANCE_MARGIN_CCW 27
 
 // Protocol version
 #define PROTOCOL_VERSION 1.0  // Default Protocol version of DYNAMIXEL X series.
@@ -151,9 +153,9 @@ void setupDynamixel(uint8_t dxl_id)
   );
 
   if (dxl_comm_result != COMM_SUCCESS) {
-    RCLCPP_ERROR(rclcpp::get_logger("read_write_node"), "Failed to set Position Control Mode.");
+    RCLCPP_ERROR(rclcpp::get_logger("read_write_node"), "Failed to set Andle limit cw.");
   } else {
-    RCLCPP_INFO(rclcpp::get_logger("read_write_node"), "Succeeded to set Position Control Mode.");
+    RCLCPP_INFO(rclcpp::get_logger("read_write_node"), "Succeeded to set Andle limit cw.");
   }
 
   dxl_comm_result = packetHandler->write2ByteTxRx(
@@ -165,9 +167,9 @@ void setupDynamixel(uint8_t dxl_id)
   );
 
   if (dxl_comm_result != COMM_SUCCESS) {
-    RCLCPP_ERROR(rclcpp::get_logger("read_write_node"), "Failed to set Position Control Mode.");
+    RCLCPP_ERROR(rclcpp::get_logger("read_write_node"), "Failed to set Angle limit ccw.");
   } else {
-    RCLCPP_INFO(rclcpp::get_logger("read_write_node"), "Succeeded to set Position Control Mode.");
+    RCLCPP_INFO(rclcpp::get_logger("read_write_node"), "Succeeded to set Angle limit ccw.");
   }
 
   // Set velocity limits, so that the motor is in velocity control mode
@@ -180,10 +182,40 @@ void setupDynamixel(uint8_t dxl_id)
   );
 
   if (dxl_comm_result != COMM_SUCCESS) {
-    RCLCPP_ERROR(rclcpp::get_logger("read_write_node"), "Failed to set Position Control Mode.");
+    RCLCPP_ERROR(rclcpp::get_logger("read_write_node"), "Failed to set movementspeed.");
   } else {
-    RCLCPP_INFO(rclcpp::get_logger("read_write_node"), "Succeeded to set Position Control Mode.");
+    RCLCPP_INFO(rclcpp::get_logger("read_write_node"), "Succeeded to set movementspeed.");
   }
+
+  // Set compliance margins
+  dxl_comm_result = packetHandler->write1ByteTxRx(
+    portHandler,
+    dxl_id,
+    ADDR_COMPLIANCE_MARGIN_CW,
+    1,
+    &dxl_error
+  );
+
+  if (dxl_comm_result != COMM_SUCCESS) {
+    RCLCPP_ERROR(rclcpp::get_logger("read_write_node"), "Failed to set compliance margin CW.");
+  } else {
+    RCLCPP_INFO(rclcpp::get_logger("read_write_node"), "Succeeded to set compliance margin CW.");
+  }
+
+  dxl_comm_result = packetHandler->write1ByteTxRx(
+    portHandler,
+    dxl_id,
+    ADDR_COMPLIANCE_MARGIN_CCW,
+    1,
+    &dxl_error
+  );
+
+  if (dxl_comm_result != COMM_SUCCESS) {
+    RCLCPP_ERROR(rclcpp::get_logger("read_write_node"), "Failed to set compliance margin CCW.");
+  } else {
+    RCLCPP_INFO(rclcpp::get_logger("read_write_node"), "Succeeded to set compliance margin CCW.");
+  }
+
 
   // Enable Torque of DYNAMIXEL
   dxl_comm_result = packetHandler->write1ByteTxRx(
