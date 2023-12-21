@@ -2,7 +2,6 @@
 	path = DynamixelSDK
 	url = https://github.com/ROBOTIS-GIT/DynamixelSDK.git
 	branch = ros2
-[submodule "BRAM-uio-driver"]
+[submodule "dynamixel_sdk_maincontroller/include/BRAM-uio-driver"]
 	path = dynamixel_sdk_maincontroller/include/BRAM-uio-driver
-	url = https://github.com/DIII-SDU-Group/BRAM-uio-driver.git
-	branch = main
+	url = /dynamixel_sdk_maincontroller/include/BRAM-uio-driver/
