@@ -26,33 +26,32 @@ class MainController : public rclcpp::Node
 		MainController() : Node("main_controller") {
 			RCLCPP_INFO(this->get_logger(), "Initializing MainController node");
 
-			client_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-        	sub_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-			cam_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+			reentrant_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+			mutualexc_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
-			rclcpp::SubscriptionOptions options_sub;
-			options_sub.callback_group = sub_cb_group_;
-			rclcpp::SubscriptionOptions options_camsub;
-			options_camsub.callback_group = cam_cb_group_;
+			rclcpp::SubscriptionOptions options_sub_reentrant;
+			options_sub_reentrant.callback_group = reentrant_cb_group_;
+			rclcpp::SubscriptionOptions options_sub_mutualexc;
+			options_sub_mutualexc.callback_group = mutualexc_cb_group_;
 
 			RCLCPP_INFO(this->get_logger(), "Starting position subscription");
-			subscription_ = this->create_subscription<std_msgs::msg::Int32>("gotopos", 10, std::bind(&MainController::gotorequest_callback, this, _1), options_sub);
+			goto_subscription_ = this->create_subscription<std_msgs::msg::Int32>("gotopos", 10, std::bind(&MainController::gotorequest_callback, this, _1), options_sub_reentrant);
 			RCLCPP_INFO(this->get_logger(), "Starting position publisher");
 			publisher_ = this->create_publisher<dynamixel_sdk_custom_interfaces::msg::SetPosition>("set_position", 10);
 			RCLCPP_INFO(this->get_logger(), "Starting client for getting position");
-			client_ = this->create_client<dynamixel_sdk_custom_interfaces::srv::GetPosition>("get_position", rmw_qos_profile_services_default, client_cb_group_);
+			client_ = this->create_client<dynamixel_sdk_custom_interfaces::srv::GetPosition>("get_position", rmw_qos_profile_services_default, reentrant_cb_group_);
 			RCLCPP_INFO(this->get_logger(), "Starting camera subscriber");
-			camera_subscription_ = this->create_subscription<sensor_msgs::msg::Image>("/image_raw", 10,	std::bind(&MainController::onImageMsg, this, std::placeholders::_1), options_camsub);
+			camera_subscription_ = this->create_subscription<sensor_msgs::msg::Image>("/image_raw", 10,	std::bind(&MainController::onImageMsg, this, std::placeholders::_1), options_sub_reentrant);
 
 			directory = std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + "/";
 			mkdir(directory.c_str(), 0777);
 		}
 
 	private:
-		rclcpp::CallbackGroup::SharedPtr client_cb_group_;
-		rclcpp::CallbackGroup::SharedPtr sub_cb_group_;
+		rclcpp::CallbackGroup::SharedPtr reentrant_cb_group_;
+		rclcpp::CallbackGroup::SharedPtr mutualexc_cb_group_;
 		rclcpp::CallbackGroup::SharedPtr cam_cb_group_;
-		rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr subscription_;
+		rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr goto_subscription_;
 		rclcpp::Publisher<dynamixel_sdk_custom_interfaces::msg::SetPosition>::SharedPtr publisher_;
 		rclcpp::Client<dynamixel_sdk_custom_interfaces::srv::GetPosition>::SharedPtr client_;
 		rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr camera_subscription_;
@@ -61,6 +60,8 @@ class MainController : public rclcpp::Node
 		int motorID = 0;
 		std::string directory;
 		cv::Mat gray_;
+		cv::Mat gray_to_be_used_;
+		bool newImageReady = false;
 		int i = 0;
 
         void onImageMsg(const sensor_msgs::msg::Image::SharedPtr msg) 
@@ -111,6 +112,8 @@ class MainController : public rclcpp::Node
 			}
 
 			std::string filename = directory + "img" + std::to_string(i++) + "_" + std::to_string(pos) +".png";
+			gray_to_be_used_ = gray_;
+			newImageReady = true;
 			cv::imwrite(filename, gray_);
 
 
