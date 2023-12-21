@@ -34,6 +34,8 @@ class MainController : public rclcpp::Node
 			rclcpp::SubscriptionOptions options_sub_mutualexc;
 			options_sub_mutualexc.callback_group = mutualexc_cb_group_;
 
+			RCLCPP_INFO(this->get_logger(), "Starting starter subscription");
+			start_main_subscription_ = this->create_subscription<std_msgs::msg::String>("start", 10, std::bind(&MainController::start_callback, this, _1), options_sub_mutualexc);
 			RCLCPP_INFO(this->get_logger(), "Starting position subscription");
 			goto_subscription_ = this->create_subscription<std_msgs::msg::Int32>("gotopos", 10, std::bind(&MainController::gotorequest_callback, this, _1), options_sub_reentrant);
 			RCLCPP_INFO(this->get_logger(), "Starting position publisher");
@@ -50,7 +52,7 @@ class MainController : public rclcpp::Node
 	private:
 		rclcpp::CallbackGroup::SharedPtr reentrant_cb_group_;
 		rclcpp::CallbackGroup::SharedPtr mutualexc_cb_group_;
-		rclcpp::CallbackGroup::SharedPtr cam_cb_group_;
+		rclcpp::Subscription<std_msgs::msg::String>::SharedPtr start_main_subscription_;
 		rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr goto_subscription_;
 		rclcpp::Publisher<dynamixel_sdk_custom_interfaces::msg::SetPosition>::SharedPtr publisher_;
 		rclcpp::Client<dynamixel_sdk_custom_interfaces::srv::GetPosition>::SharedPtr client_;
@@ -63,6 +65,22 @@ class MainController : public rclcpp::Node
 		cv::Mat gray_to_be_used_;
 		bool newImageReady = false;
 		int i = 0;
+
+		void start_callback(const std_msgs::msg::String::SharedPtr msg) {
+			RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
+			
+			if (msg->data == "start") {
+				RCLCPP_INFO(this->get_logger(), "Starting main loop");
+				while (true) {
+					if (newImageReady) {
+						newImageReady = false;
+						RCLCPP_INFO(this->get_logger(), "NewImgReady and being processed");
+						//cv::imshow("image", gray_to_be_used_);
+						//cv::waitKey(1);
+					}
+				}
+			}
+		}
 
         void onImageMsg(const sensor_msgs::msg::Image::SharedPtr msg) 
 		{
