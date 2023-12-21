@@ -16,12 +16,12 @@
 #include "std_msgs/msg/string.hpp"
 #include "std_msgs/msg/int32.hpp"
 
-//#include "BRAM-uio-driver/src/bram_uio.h"
+#include "BRAM-uio-driver/src/bram_uio.h"
 
 #define BRAM_SIZW 8000
 #define XST_FAILURE 1L
 
-// BRAM BRAM1(0,BRAM_SIZW);
+BRAM BRAM1(0,BRAM_SIZW);
 
 #define DATA_SIZE 768
 
