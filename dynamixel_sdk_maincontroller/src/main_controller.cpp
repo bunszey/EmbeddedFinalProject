@@ -6,7 +6,7 @@
 #include <chrono>
 #include <filesystem>
 #include <sys/stat.h>
-#include<unistd.h> 
+#include <unistd.h> 
 
 #include "dynamixel_sdk/dynamixel_sdk.h"
 #include "dynamixel_sdk_custom_interfaces/msg/set_position.hpp"
@@ -15,6 +15,17 @@
 #include "rcutils/cmdline_parser.h"
 #include "std_msgs/msg/string.hpp"
 #include "std_msgs/msg/int32.hpp"
+
+//#include "BRAM-uio-driver/src/bram_uio.h"
+
+#define BRAM_SIZW 8000
+#define XST_FAILURE 1L
+
+// BRAM BRAM1(0,BRAM_SIZW);
+
+#define DATA_SIZE 768
+
+#define BRAMWAITPERIOD 100000 // microseconds 
 #define TIMEPERIOD 500000 // microseconds 
 
 using std::placeholders::_1;
@@ -47,6 +58,8 @@ class MainController : public rclcpp::Node
 
 			directory = "gray_images/" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + "/";
 			mkdir(directory.c_str(), 0777);
+
+			//gray_to_be_used_ = cv::imread("testimg.png", cv::IMREAD_GRAYSCALE);
 		}
 
 	private:
@@ -63,18 +76,40 @@ class MainController : public rclcpp::Node
 		std::string directory;
 		cv::Mat gray_;
 		cv::Mat gray_to_be_used_;
+
 		bool newImageReady = false;
 		int i = 0;
 
 		void start_callback(const std_msgs::msg::String::SharedPtr msg) {
 			RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
-			
+
 			if (msg->data == "start") {
 				RCLCPP_INFO(this->get_logger(), "Starting main loop");
 				while (true) {
 					if (newImageReady) {
 						newImageReady = false;
 						RCLCPP_INFO(this->get_logger(), "NewImgReady and being processed");
+						
+						int noOfPixels = gray_to_be_used_.rows * gray_to_be_used_.cols;
+
+						if (noOfPixels != DATA_SIZE) {
+							RCLCPP_INFO(this->get_logger(), "No of pixels is not 768, but %d", noOfPixels);
+							continue;
+						}
+
+
+						for(int i = 0; i < noOfPixels; i++) {
+							_Float32 scaled_data = gray_to_be_used_.data[i]/255.0;
+
+							int32_t data_as_int = *((int32_t*)&scaled_data);
+							BRAM1[i] = data_as_int;
+						}
+						usleep(BRAMWAITPERIOD);
+
+						int32_t result = BRAM1[128];
+						RCLCPP_INFO(this->get_logger(), "Result is %d", result);
+
+
 						//cv::imshow("image", gray_to_be_used_);
 						//cv::waitKey(1);
 					}
@@ -128,10 +163,10 @@ class MainController : public rclcpp::Node
 				
 			}
 			usleep(TIMEPERIOD);
-			std::string filename = directory + "img" + std::to_string(i++) + "_" + std::to_string(pos) +".png";
-			gray_to_be_used_ = gray_;
+			//std::string filename = directory + "img" + std::to_string(i++) + "_" + std::to_string(pos) +".png";
+			cv::resize(gray_, gray_to_be_used_, cv::Size(32, 24), cv::INTER_LINEAR);
 			newImageReady = true;
-			cv::imwrite(filename, gray_);
+			//cv::imwrite(filename, gray_);
 
 
 		}
