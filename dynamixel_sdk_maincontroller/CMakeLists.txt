@@ -24,7 +24,7 @@ find_package(cv_bridge REQUIRED)
 include_directories(include)
 
 # Build
-add_executable(main_controller src/main_controller.cpp)
+add_executable(main_controller src/main_controller.cpp include/BRAM-uio-driver/src/bram_uio.cpp)
 
 ament_target_dependencies(main_controller
   dynamixel_sdk_custom_interfaces
