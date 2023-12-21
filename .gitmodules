@@ -4,4 +4,4 @@
 	branch = ros2
 [submodule "dynamixel_sdk_maincontroller/include/BRAM-uio-driver"]
 	path = dynamixel_sdk_maincontroller/include/BRAM-uio-driver
-	url = /dynamixel_sdk_maincontroller/include/BRAM-uio-driver/
+	url = https://github.com/DIII-SDU-Group/BRAM-uio-driver.git
