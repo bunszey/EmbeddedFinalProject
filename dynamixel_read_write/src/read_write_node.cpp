@@ -177,7 +177,7 @@ void setupDynamixel(uint8_t dxl_id)
     portHandler,
     dxl_id,
     ADDR_MOVEMENT_SPEED,
-    25,
+    50,
     &dxl_error
   );
 
