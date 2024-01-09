@@ -30,6 +30,76 @@ BRAM BRAM1(0,BRAM_SIZW);
 
 using std::placeholders::_1;
 using namespace std::chrono_literals;
+using namespace cv;
+using namespace std;
+
+
+Mat getCenterImage(Mat& img)
+{
+    Mat blur;
+    GaussianBlur(img, blur, Size(3,3),0);
+
+    //Mat gray;
+    //cvtColor(blur, gray, COLOR_BGR2GRAY);
+
+    Mat mask = cv::Mat::zeros(blur.size(), blur.type());
+    Mat dstImage = cv::Mat::zeros(blur.size(), blur.type());
+    circle(mask, cv::Point(mask.cols/2, mask.rows/1.82), 110, cv::Scalar(255, 0, 0), -1, 8, 0);
+    blur.copyTo(dstImage, mask);
+
+    return dstImage;
+}
+
+
+Mat getEdgeDetect(Mat& img, int StartThresh, int EndThresh, int dilationSize)
+{
+    Mat Edges;
+    Canny(img, Edges, StartThresh, EndThresh);
+
+    Mat DialtedImg;
+
+    Mat kernel = getStructuringElement(MORPH_RECT, Size(dilationSize, dilationSize));
+    dilate(Edges, DialtedImg, kernel, Point(-1,-1));
+
+    return DialtedImg;
+}
+
+float processContours(const Mat& CannyEdge, Mat& image)
+{
+    float angle;
+    vector<vector<Point>> contours;
+    findContours(CannyEdge, contours, RETR_LIST, CHAIN_APPROX_NONE);
+
+    for (size_t i = 0; i < contours.size(); i++) {
+        double area = contourArea(contours[i]);
+
+        if (area < 8000 || 23000 < area) continue;
+
+        drawContours(image, contours, static_cast<int>(i), Scalar(0, 0, 255), 2);
+
+        RotatedRect RotRec;
+        RotRec = minAreaRect(contours[i]);
+
+        // Get the vertices of the rotated rectangle
+        Point2f vertices[4];
+        RotRec.points(vertices);
+
+        // Draw the rotated rectangle using the vertices
+        for (int j = 0; j < 4; j++) {
+            line(image, vertices[j], vertices[(j + 1) % 4], Scalar(0, 255, 0), 2);
+        }
+
+        // Get the center and angle of the rotated rectangle
+        Point2f center = RotRec.center;
+        angle = RotRec.angle;
+        break;
+    }
+    return -angle;
+}
+
+
+
+
 
 class MainController : public rclcpp::Node
 {
@@ -59,7 +129,6 @@ class MainController : public rclcpp::Node
 			directory = "gray_images/" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + "/";
 			mkdir(directory.c_str(), 0777);
 
-			//gray_to_be_used_ = cv::imread("testimg.png", cv::IMREAD_GRAYSCALE);
 		}
 
 	private:
@@ -86,7 +155,12 @@ class MainController : public rclcpp::Node
 		int looking_for_label = -1;
 		
 		int getAngleFromImage(cv::Mat img) {
-			return 0;
+
+			Mat centerImg = getCenterImage(img);
+			Mat edgeImg = getEdgeDetect(centerImg, 50, 150, 3);
+			float angle = processContours(edgeImg, centerImg);
+
+			return angle;
 		}
 
 		void start_callback(const std_msgs::msg::Int32::SharedPtr msg) {
