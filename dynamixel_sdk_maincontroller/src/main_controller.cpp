@@ -27,6 +27,7 @@ BRAM BRAM1(0,BRAM_SIZW);
 
 #define BRAMWAITPERIOD 100000 // microseconds 
 #define TIMEPERIOD 500000 // microseconds 
+#define GOTOWAITTIMEPERIOD 1000000 // microseconds 
 
 using std::placeholders::_1;
 using namespace std::chrono_literals;
@@ -90,7 +91,7 @@ float processContours(const Mat& CannyEdge, Mat& image)
         }
 
         // Get the center and angle of the rotated rectangle
-        Point2f center = RotRec.center;
+        //Point2f center = RotRec.center;
         angle = RotRec.angle;
         break;
     }
@@ -121,6 +122,8 @@ class MainController : public rclcpp::Node
 			goto_subscription_ = this->create_subscription<std_msgs::msg::Int32>("gotopos", 10, std::bind(&MainController::gotorequest_callback, this, _1), options_sub_reentrant);
 			RCLCPP_INFO(this->get_logger(), "Starting position publisher");
 			publisher_ = this->create_publisher<dynamixel_sdk_custom_interfaces::msg::SetPosition>("set_position", 10);
+			RCLCPP_INFO(this->get_logger(), "Starting gotopos publisher");
+			gotopublisher_ = this->create_publisher<std_msgs::msg::Int32>("gotopos", 10);
 			RCLCPP_INFO(this->get_logger(), "Starting client for getting position");
 			client_ = this->create_client<dynamixel_sdk_custom_interfaces::srv::GetPosition>("get_position", rmw_qos_profile_services_default, reentrant_cb_group_);
 			RCLCPP_INFO(this->get_logger(), "Starting camera subscriber");
@@ -137,6 +140,7 @@ class MainController : public rclcpp::Node
 		rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr start_main_subscription_;
 		rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr goto_subscription_;
 		rclcpp::Publisher<dynamixel_sdk_custom_interfaces::msg::SetPosition>::SharedPtr publisher_;
+		rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr gotopublisher_;
 		rclcpp::Client<dynamixel_sdk_custom_interfaces::srv::GetPosition>::SharedPtr client_;
 		rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr camera_subscription_;
 
@@ -174,10 +178,12 @@ class MainController : public rclcpp::Node
 
 
 			while (looking_for_label != -1) {
-				const std_msgs::msg::Int32::SharedPtr msg;
-				msg->data = gotopos;
+				std_msgs::msg::Int32 msg;
+				msg.data = gotopos;
 
-				gotorequest_callback(msg);
+				gotopublisher_->publish(msg);
+						
+				usleep(GOTOWAITTIMEPERIOD);
 
 				if (newImageReady) {
 					newImageReady = false;
