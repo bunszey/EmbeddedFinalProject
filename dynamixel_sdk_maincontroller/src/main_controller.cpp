@@ -92,7 +92,7 @@ class MainController : public rclcpp::Node
 		void start_callback(const std_msgs::msg::Int32::SharedPtr msg) {
 			RCLCPP_INFO(this->get_logger(), "I heard: '%d'", msg->data);
 			
-			looking_for_label = msg->data % 7;
+			looking_for_label = msg->data % 5;
 
 			RCLCPP_INFO(this->get_logger(), "Starting main loop");
 			int gotopos = 0;
@@ -141,12 +141,12 @@ class MainController : public rclcpp::Node
 						publisher_->publish(message);
 						
 						usleep(TIMEPERIOD);
-						
+
 					} else {
 						RCLCPP_INFO(this->get_logger(), "Did not find label %d, but %d", looking_for_label, result);
-						if (++gotopos >= 7) {
-							gotopos = -1;
-						}
+					}
+					if (++gotopos >= 7) {
+						gotopos = -1;
 					}
 
 				}
