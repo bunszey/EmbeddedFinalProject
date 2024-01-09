@@ -46,7 +46,7 @@ class MainController : public rclcpp::Node
 			options_sub_mutualexc.callback_group = mutualexc_cb_group_;
 
 			RCLCPP_INFO(this->get_logger(), "Starting starter subscription");
-			start_main_subscription_ = this->create_subscription<std_msgs::msg::String>("start", 10, std::bind(&MainController::start_callback, this, _1), options_sub_mutualexc);
+			start_main_subscription_ = this->create_subscription<std_msgs::msg::Int32>("start", 10, std::bind(&MainController::start_callback, this, _1), options_sub_mutualexc);
 			RCLCPP_INFO(this->get_logger(), "Starting position subscription");
 			goto_subscription_ = this->create_subscription<std_msgs::msg::Int32>("gotopos", 10, std::bind(&MainController::gotorequest_callback, this, _1), options_sub_reentrant);
 			RCLCPP_INFO(this->get_logger(), "Starting position publisher");
@@ -73,48 +73,85 @@ class MainController : public rclcpp::Node
 
 		int positions[7] = {310, 377, 446, 517, 584, 655, 722};
 		int motorID = 0;
+		int screwMotorID = 1;
+		double degPrTick = 0.29;
+		int screwMiddleTick = 512;
 		std::string directory;
 		cv::Mat gray_;
 		cv::Mat gray_to_be_used_;
 
 		bool newImageReady = false;
 		int i = 0;
+		
+		int looking_for_label = -1;
+		
+		int getAngleFromImage(cv::Mat img) {
+			return 0;
+		}
 
-		void start_callback(const std_msgs::msg::String::SharedPtr msg) {
-			RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
+		void start_callback(const std_msgs::msg::Int32::SharedPtr msg) {
+			RCLCPP_INFO(this->get_logger(), "I heard: '%d'", msg->data);
+			
+			looking_for_label = msg->data % 7;
 
-			if (msg->data == "start") {
-				RCLCPP_INFO(this->get_logger(), "Starting main loop");
-				while (true) {
-					if (newImageReady) {
-						newImageReady = false;
-						RCLCPP_INFO(this->get_logger(), "NewImgReady and being processed");
-						
-						int noOfPixels = gray_to_be_used_.rows * gray_to_be_used_.cols;
-
-						if (noOfPixels != DATA_SIZE) {
-							RCLCPP_INFO(this->get_logger(), "No of pixels is not 768, but %d", noOfPixels);
-							continue;
-						}
+			RCLCPP_INFO(this->get_logger(), "Starting main loop");
+			int gotopos = 0;
 
 
-						for(int i = 0; i < noOfPixels; i++) {
-							_Float32 scaled_data = gray_to_be_used_.data[i]/255.0;
 
-							int32_t data_as_int = *((int32_t*)&scaled_data);
-							BRAM1[i] = data_as_int;
-						}
-						usleep(BRAMWAITPERIOD);
+			while (looking_for_label != -1) {
+				const std_msgs::msg::Int32::SharedPtr msg;
+				msg->data = gotopos;
 
-						int32_t result = BRAM1[128];
-						RCLCPP_INFO(this->get_logger(), "Result is %d", result);
+				gotorequest_callback(msg);
 
+				if (newImageReady) {
+					newImageReady = false;
+					RCLCPP_INFO(this->get_logger(), "NewImgReady and being processed");
+					
+					int noOfPixels = gray_to_be_used_.rows * gray_to_be_used_.cols;
 
-						//cv::imshow("image", gray_to_be_used_);
-						//cv::waitKey(1);
+					if (noOfPixels != DATA_SIZE) {
+						RCLCPP_INFO(this->get_logger(), "No of pixels is not 768, but %d", noOfPixels);
+						continue;
 					}
+
+
+					for(int i = 0; i < noOfPixels; i++) {
+						_Float32 scaled_data = gray_to_be_used_.data[i]/255.0;
+
+						int32_t data_as_int = *((int32_t*)&scaled_data);
+						RCLCPP_INFO(this->get_logger(), "Data as float is %f and as int is %d", scaled_data, data_as_int);	
+						BRAM1[i] = data_as_int;
+					}
+					usleep(BRAMWAITPERIOD);
+
+					int32_t result = BRAM1[1024];
+
+					if (result == looking_for_label) {
+						RCLCPP_INFO(this->get_logger(), "Found label %d", result);
+						//Code for rotating motor based on vision
+						int angle = getAngleFromImage(gray_to_be_used_);
+						RCLCPP_INFO(this->get_logger(), "Angle is %d", angle);
+
+						auto message = dynamixel_sdk_custom_interfaces::msg::SetPosition();
+						message.id = screwMotorID;
+						message.position = screwMiddleTick + int(angle/degPrTick);
+						RCLCPP_INFO(this->get_logger(), "Publishing: id = '%d' , position = '%d'", message.id, message.position);
+						publisher_->publish(message);
+						
+						usleep(TIMEPERIOD);
+						
+					} else {
+						RCLCPP_INFO(this->get_logger(), "Did not find label %d, but %d", looking_for_label, result);
+						if (++gotopos >= 7) {
+							gotopos = -1;
+						}
+					}
+
 				}
 			}
+			RCLCPP_INFO(this->get_logger(), "Main loop ended");
 		}
 
         void onImageMsg(const sensor_msgs::msg::Image::SharedPtr msg) 
@@ -159,6 +196,7 @@ class MainController : public rclcpp::Node
 				if (status == std::future_status::ready) {
 					RCLCPP_INFO(this->get_logger(), "Received response");
 					pos = result.get()->position;
+					
 				}
 				
 			}
