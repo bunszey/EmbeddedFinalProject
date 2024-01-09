@@ -65,7 +65,7 @@ class MainController : public rclcpp::Node
 	private:
 		rclcpp::CallbackGroup::SharedPtr reentrant_cb_group_;
 		rclcpp::CallbackGroup::SharedPtr mutualexc_cb_group_;
-		rclcpp::Subscription<std_msgs::msg::String>::SharedPtr start_main_subscription_;
+		rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr start_main_subscription_;
 		rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr goto_subscription_;
 		rclcpp::Publisher<dynamixel_sdk_custom_interfaces::msg::SetPosition>::SharedPtr publisher_;
 		rclcpp::Client<dynamixel_sdk_custom_interfaces::srv::GetPosition>::SharedPtr client_;
