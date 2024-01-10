@@ -18,7 +18,7 @@
 
 #include "BRAM-uio-driver/src/bram_uio.h"
 
-#define BRAM_SIZW 8000
+#define BRAM_SIZW 16384
 #define XST_FAILURE 1L
 
 BRAM BRAM1(0,BRAM_SIZW);
@@ -26,8 +26,8 @@ BRAM BRAM1(0,BRAM_SIZW);
 #define DATA_SIZE 768
 
 #define BRAMWAITPERIOD 100000 // microseconds 
-#define TIMEPERIOD 500000 // microseconds 
-#define GOTOWAITTIMEPERIOD 1000000 // microseconds 
+#define TIMEPERIOD 1000000 // microseconds 
+#define GOTOWAITTIMEPERIOD 3000000 // microseconds 
 
 using std::placeholders::_1;
 using namespace std::chrono_literals;
@@ -168,27 +168,29 @@ class MainController : public rclcpp::Node
 		}
 
 		void start_callback(const std_msgs::msg::Int32::SharedPtr msg) {
-			RCLCPP_INFO(this->get_logger(), "I heard: '%d'", msg->data);
+			RCLCPP_INFO(this->get_logger(), "Starting looking for label: '%d'", msg->data);
 			
 			looking_for_label = msg->data % 5;
 
 			RCLCPP_INFO(this->get_logger(), "Starting main loop");
 			int gotopos = 0;
-
+			int oldGotopos = -1;
 
 
 			while (looking_for_label != -1) {
-				std_msgs::msg::Int32 msg;
-				msg.data = gotopos;
-
-				gotopublisher_->publish(msg);
-						
-				usleep(GOTOWAITTIMEPERIOD);
+				if (oldGotopos != gotopos){
+					std_msgs::msg::Int32 msg;
+					msg.data = gotopos;
+					gotopublisher_->publish(msg);
+					oldGotopos = gotopos;
+				}
+				
 
 				if (newImageReady) {
 					newImageReady = false;
 					RCLCPP_INFO(this->get_logger(), "NewImgReady and being processed");
-					
+					cv::imwrite("img"+to_string(gotopos)+".png", gray_to_be_used_);
+
 					int noOfPixels = gray_to_be_used_.rows * gray_to_be_used_.cols;
 
 					if (noOfPixels != DATA_SIZE) {
@@ -201,12 +203,12 @@ class MainController : public rclcpp::Node
 						_Float32 scaled_data = gray_to_be_used_.data[i]/255.0;
 
 						int32_t data_as_int = *((int32_t*)&scaled_data);
-						RCLCPP_INFO(this->get_logger(), "Data as float is %f and as int is %d", scaled_data, data_as_int);	
+						//RCLCPP_INFO(this->get_logger(), "Data as float is %f and as int is %d", scaled_data, data_as_int);	
 						BRAM1[i] = data_as_int;
 					}
 					usleep(BRAMWAITPERIOD);
 
-					int32_t result = BRAM1[1024];
+					int32_t result = BRAM1[127];
 
 					if (result == looking_for_label) {
 						RCLCPP_INFO(this->get_logger(), "Found label %d", result);
@@ -220,7 +222,7 @@ class MainController : public rclcpp::Node
 						RCLCPP_INFO(this->get_logger(), "Publishing: id = '%d' , position = '%d'", message.id, message.position);
 						publisher_->publish(message);
 						
-						usleep(TIMEPERIOD);
+						usleep(GOTOWAITTIMEPERIOD);
 
 					} else {
 						RCLCPP_INFO(this->get_logger(), "Did not find label %d, but %d", looking_for_label, result);
@@ -249,12 +251,15 @@ class MainController : public rclcpp::Node
 		}
 
 		void gotorequest_callback(const std_msgs::msg::Int32::SharedPtr msg) {
-			RCLCPP_INFO(this->get_logger(), "I heard: '%d'", msg->data);
+			if (msg->data < 0 || msg->data > 6){
+				return;
+			}
+			RCLCPP_INFO(this->get_logger(), "Going to pos: '%d'", msg->data);
 
 			auto message = dynamixel_sdk_custom_interfaces::msg::SetPosition();
 			message.id = motorID;
 			message.position = positions[msg->data % 7];
-			RCLCPP_INFO(this->get_logger(), "Publishing: id = '%d' , position = '%d'", message.id, message.position);
+			RCLCPP_INFO(this->get_logger(), "Publishing to motor: id = '%d' , position = '%d'", message.id, message.position);
       		publisher_->publish(message);
 			
 			int32_t pos = -1;
@@ -274,12 +279,13 @@ class MainController : public rclcpp::Node
 				auto result = client_->async_send_request(request);
 				std::future_status status = result.wait_for(1s);
 				if (status == std::future_status::ready) {
-					RCLCPP_INFO(this->get_logger(), "Received response");
+					//RCLCPP_INFO(this->get_logger(), "Received response");
 					pos = result.get()->position;
 					
 				}
 				
 			}
+			RCLCPP_INFO(this->get_logger(), "Reached pos %d", msg->data);
 			usleep(TIMEPERIOD);
 			//std::string filename = directory + "img" + std::to_string(i++) + "_" + std::to_string(pos) +".png";
 			cv::resize(gray_, gray_to_be_used_, cv::Size(32, 24), cv::INTER_LINEAR);
