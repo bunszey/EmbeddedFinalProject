@@ -91,45 +91,45 @@ class MainController : public rclcpp::Node
 		
 		int mLookingForLabel = -1;
 		
-		int getAngleFromImage(cv::Mat image_input, int screw_type = 0) {
+		int getAngleFromImage(cv::Mat imageInput, int screwType = 0) {
 			// define constants
-			int canny_diff = 0;
-			int hough_thresh = 50;
+			int cannyDiff = 0;
+			int houghThreshold = 50;
 			// define variables
-			int mask_radius;
-			int canny_threshold;
-			int hough_min_line_length;
-			int hough_max_line_gap;
+			int maskRadius;
+			int cannyThreshold;
+			int houghMinLineLength;
+			int houghMaxLineGap;
 
-			switch (screw_type) {
+			switch (screwType) {
 				case 0:
 					// Hex
-					mask_radius = 100;
-					canny_threshold = 50;
-					hough_min_line_length = 10;
-					hough_max_line_gap = 10;
+					maskRadius = 100;
+					cannyThreshold = 50;
+					houghMinLineLength = 10;
+					houghMaxLineGap = 10;
 					break;
 				case 1:
 					// Slotted hex
-					mask_radius = 60;
-					canny_threshold = 30;
-					hough_min_line_length = 10;
-					hough_max_line_gap = 10;
+					maskRadius = 60;
+					cannyThreshold = 30;
+					houghMinLineLength = 10;
+					houghMaxLineGap = 10;
 					break;
 				case 3:
 					// Screw
-					mask_radius = 60;
-					canny_threshold = 30;
-					hough_thresh = 50;
-					hough_min_line_length = 30;
-					hough_max_line_gap = 40;
+					maskRadius = 60;
+					cannyThreshold = 30;
+					houghThreshold = 50;
+					houghMinLineLength = 30;
+					houghMaxLineGap = 40;
 					break;
 				case 4:
 					// Square
-					mask_radius = 100;
-					canny_threshold = 50;
-					hough_min_line_length = 70;
-					hough_max_line_gap = 10;
+					maskRadius = 100;
+					cannyThreshold = 50;
+					houghMinLineLength = 70;
+					houghMaxLineGap = 10;
 					break;
 				default:
 					RCLCPP_INFO(this->get_logger(), "Invalid screw type chosen for vision");
@@ -137,19 +137,19 @@ class MainController : public rclcpp::Node
 			}
 
 			// Mask to only save circle of image
-			Mat mask = cv::Mat::zeros(image_input.size(), image_input.type());
-			Mat masked = cv::Mat::zeros(image_input.size(), image_input.type());
-			circle(mask, cv::Point(mask.cols/2, mask.rows/1.71), mask_radius, cv::Scalar(255, 0, 0), -1, 8, 0);
-			image_input.copyTo(masked, mask);
+			Mat mask = cv::Mat::zeros(imageInput.size(), imageInput.type());
+			Mat masked = cv::Mat::zeros(imageInput.size(), imageInput.type());
+			circle(mask, cv::Point(mask.cols/2, mask.rows/1.71), maskRadius, cv::Scalar(255, 0, 0), -1, 8, 0);
+			imageInput.copyTo(masked, mask);
 
 			// Canny edge detection
 			Mat edges;
-			Canny(masked, edges, canny_threshold, canny_threshold+canny_diff); 
+			Canny(masked, edges, cannyThreshold, cannyThreshold+cannyDiff); 
 
 			// Mask to remove outer edges from canny edge detecting circle mask from above
 			Mat mask2 = cv::Mat::zeros(edges.size(), edges.type());
 			Mat masked2 = cv::Mat::zeros(edges.size(), edges.type());
-			circle(mask2, cv::Point(mask2.cols/2, mask2.rows/1.71), mask_radius-1, cv::Scalar(255, 0, 0), -1, 8, 0);
+			circle(mask2, cv::Point(mask2.cols/2, mask2.rows/1.71), maskRadius-1, cv::Scalar(255, 0, 0), -1, 8, 0);
 			edges.copyTo(masked2, mask2);
 			masked2.copyTo(edges);
 
@@ -157,10 +157,10 @@ class MainController : public rclcpp::Node
 			vector<Vec4i> lines;
 			
 			// If no lines are found, decrease the threshold until lines are found
-			while (lines.size() == 0 && hough_thresh > 0) {
+			while (lines.size() == 0 && houghThreshold > 0) {
 				// Apply Hough Transform
-				HoughLinesP(edges, lines, 1, CV_PI/180, hough_thresh, hough_min_line_length, hough_max_line_gap);
-				hough_thresh--;
+				HoughLinesP(edges, lines, 1, CV_PI/180, houghThreshold, houghMinLineLength, houghMaxLineGap);
+				houghThreshold--;
 			}
 			// If no lines are found, return 0
 			if (lines.size() == 0) {
@@ -169,18 +169,18 @@ class MainController : public rclcpp::Node
 			}
 			
 			// find the line with least difference on the y axis
-			int min_diff = 1000;
-			int min_index = 0;
+			int minDiff = 1000;
+			int minIndex = 0;
 			for (size_t i=0; i<lines.size(); i++) {
 				int diff = abs(lines[i][1] - lines[i][3]);
-				if (diff < min_diff) {
-					min_diff = diff;
-					min_index = i;
+				if (diff < minDiff) {
+					minDiff = diff;
+					minIndex = i;
 				}
 			}
 
 			// Find angle of line in degrees
-			double angle = atan2(lines[min_index][3] - lines[min_index][1], lines[min_index][2] - lines[min_index][0]) * 180.0 / CV_PI;
+			double angle = atan2(lines[minIndex][3] - lines[minIndex][1], lines[minIndex][2] - lines[minIndex][0]) * 180.0 / CV_PI;
 
 			return -angle;
 		}
