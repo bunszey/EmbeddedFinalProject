@@ -108,55 +108,55 @@ class MainController : public rclcpp::Node
 		MainController() : Node("main_controller") {
 			RCLCPP_INFO(this->get_logger(), "Initializing MainController node");
 
-			reentrant_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-			mutualexc_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+			mReentrantCBGgroup = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+			mMutualexcCBGroup = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
 			rclcpp::SubscriptionOptions options_sub_reentrant;
-			options_sub_reentrant.callback_group = reentrant_cb_group_;
+			options_sub_reentrant.callback_group = mReentrantCBGgroup;
 			rclcpp::SubscriptionOptions options_sub_mutualexc;
-			options_sub_mutualexc.callback_group = mutualexc_cb_group_;
+			options_sub_mutualexc.callback_group = mMutualexcCBGroup;
 
 			RCLCPP_INFO(this->get_logger(), "Starting starter subscription");
-			start_main_subscription_ = this->create_subscription<std_msgs::msg::Int32>("start", 10, std::bind(&MainController::start_callback, this, _1), options_sub_mutualexc);
+			mStartMainSubscriber = this->create_subscription<std_msgs::msg::Int32>("start", 10, std::bind(&MainController::start_callback, this, _1), options_sub_mutualexc);
 			RCLCPP_INFO(this->get_logger(), "Starting position subscription");
-			goto_subscription_ = this->create_subscription<std_msgs::msg::Int32>("gotopos", 10, std::bind(&MainController::gotorequest_callback, this, _1), options_sub_reentrant);
+			mGotoSubscriber = this->create_subscription<std_msgs::msg::Int32>("gotopos", 10, std::bind(&MainController::gotorequest_callback, this, _1), options_sub_reentrant);
 			RCLCPP_INFO(this->get_logger(), "Starting position publisher");
-			publisher_ = this->create_publisher<dynamixel_sdk_custom_interfaces::msg::SetPosition>("set_position", 10);
+			mSetMotorPosPublisher = this->create_publisher<dynamixel_sdk_custom_interfaces::msg::SetPosition>("set_position", 10);
 			RCLCPP_INFO(this->get_logger(), "Starting gotopos publisher");
-			gotopublisher_ = this->create_publisher<std_msgs::msg::Int32>("gotopos", 10);
+			mGotoPublisher = this->create_publisher<std_msgs::msg::Int32>("gotopos", 10);
 			RCLCPP_INFO(this->get_logger(), "Starting client for getting position");
-			client_ = this->create_client<dynamixel_sdk_custom_interfaces::srv::GetPosition>("get_position", rmw_qos_profile_services_default, reentrant_cb_group_);
+			mGetPositionClient = this->create_client<dynamixel_sdk_custom_interfaces::srv::GetPosition>("get_position", rmw_qos_profile_services_default, mReentrantCBGgroup);
 			RCLCPP_INFO(this->get_logger(), "Starting camera subscriber");
-			camera_subscription_ = this->create_subscription<sensor_msgs::msg::Image>("/image_raw", 10,	std::bind(&MainController::onImageMsg, this, std::placeholders::_1), options_sub_reentrant);
+			mCameraSubscriber = this->create_subscription<sensor_msgs::msg::Image>("/image_raw", 10,	std::bind(&MainController::onImageMsg, this, std::placeholders::_1), options_sub_reentrant);
 
-			directory = "gray_images/" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + "/";
-			mkdir(directory.c_str(), 0777);
+			mDirectoryForImages = "gray_images/" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + "/";
+			mkdir(mDirectoryForImages.c_str(), 0777);
 
 		}
 
 	private:
-		rclcpp::CallbackGroup::SharedPtr reentrant_cb_group_;
-		rclcpp::CallbackGroup::SharedPtr mutualexc_cb_group_;
-		rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr start_main_subscription_;
-		rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr goto_subscription_;
-		rclcpp::Publisher<dynamixel_sdk_custom_interfaces::msg::SetPosition>::SharedPtr publisher_;
-		rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr gotopublisher_;
-		rclcpp::Client<dynamixel_sdk_custom_interfaces::srv::GetPosition>::SharedPtr client_;
-		rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr camera_subscription_;
+		rclcpp::CallbackGroup::SharedPtr mReentrantCBGgroup;
+		rclcpp::CallbackGroup::SharedPtr mMutualexcCBGroup;
+		rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr mStartMainSubscriber;
+		rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr mGotoSubscriber;
+		rclcpp::Publisher<dynamixel_sdk_custom_interfaces::msg::SetPosition>::SharedPtr mSetMotorPosPublisher;
+		rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr mGotoPublisher;
+		rclcpp::Client<dynamixel_sdk_custom_interfaces::srv::GetPosition>::SharedPtr mGetPositionClient;
+		rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr mCameraSubscriber;
 
-		int positions[7] = {310, 377, 446, 517, 584, 655, 722};
-		int motorID = 0;
-		int screwMotorID = 1;
-		double degPrTick = 0.29;
-		int screwMiddleTick = 512;
-		std::string directory;
-		cv::Mat gray_;
-		cv::Mat gray_to_be_used_;
+		int mPositions[7] = {310, 377, 446, 517, 584, 655, 722};
+		int mTurnMotorID = 0;
+		int mScrewMotor = 1;
+		double mDegPrTick = 0.29;
+		int mScrewMiddleTick = 512;
+		std::string mDirectoryForImages;
+		cv::Mat mGray;
+		cv::Mat mGrayToBeUsed;
 
-		bool newImageReady = false;
+		bool mNewImageFound = false;
 		int i = 0;
 		
-		int looking_for_label = -1;
+		int mLookingForLabel = -1;
 		
 		int getAngleFromImage(cv::Mat img) {
 
@@ -167,31 +167,32 @@ class MainController : public rclcpp::Node
 			return angle;
 		}
 
+
 		void start_callback(const std_msgs::msg::Int32::SharedPtr msg) {
 			RCLCPP_INFO(this->get_logger(), "Starting looking for label: '%d'", msg->data);
 			
-			looking_for_label = msg->data % 5;
+			mLookingForLabel = msg->data % 5;
 
 			RCLCPP_INFO(this->get_logger(), "Starting main loop");
 			int gotopos = 0;
 			int oldGotopos = -1;
 
 
-			while (looking_for_label != -1) {
+			while (mLookingForLabel != -1) {
 				if (oldGotopos != gotopos){
 					std_msgs::msg::Int32 msg;
 					msg.data = gotopos;
-					gotopublisher_->publish(msg);
+					mGotoPublisher->publish(msg);
 					oldGotopos = gotopos;
 				}
 				
 
-				if (newImageReady) {
-					newImageReady = false;
+				if (mNewImageFound) {
+					mNewImageFound = false;
 					RCLCPP_INFO(this->get_logger(), "NewImgReady and being processed");
-					cv::imwrite("img"+to_string(gotopos)+".png", gray_to_be_used_);
+					cv::imwrite("img"+to_string(gotopos)+".png", mGrayToBeUsed);
 
-					int noOfPixels = gray_to_be_used_.rows * gray_to_be_used_.cols;
+					int noOfPixels = mGrayToBeUsed.rows * mGrayToBeUsed.cols;
 
 					if (noOfPixels != DATA_SIZE) {
 						RCLCPP_INFO(this->get_logger(), "No of pixels is not 768, but %d", noOfPixels);
@@ -200,32 +201,32 @@ class MainController : public rclcpp::Node
 
 
 					for(int i = 0; i < noOfPixels; i++) {
-						_Float32 scaled_data = gray_to_be_used_.data[i]/255.0;
+						_Float32 scaledData = mGrayToBeUsed.data[i]/255.0;
 
-						int32_t data_as_int = *((int32_t*)&scaled_data);
-						//RCLCPP_INFO(this->get_logger(), "Data as float is %f and as int is %d", scaled_data, data_as_int);	
-						BRAM1[i] = data_as_int;
+						int32_t dataAsInt = *((int32_t*)&scaledData);
+						//RCLCPP_INFO(this->get_logger(), "Data as float is %f and as int is %d", scaledData, dataAsInt);	
+						BRAM1[i] = dataAsInt;
 					}
 					usleep(BRAMWAITPERIOD);
 
 					int32_t result = BRAM1[127];
 
-					if (result == looking_for_label) {
+					if (result == mLookingForLabel) {
 						RCLCPP_INFO(this->get_logger(), "Found label %d", result);
 						//Code for rotating motor based on vision
-						int angle = getAngleFromImage(gray_to_be_used_);
+						int angle = getAngleFromImage(mGrayToBeUsed);
 						RCLCPP_INFO(this->get_logger(), "Angle is %d", angle);
 
 						auto message = dynamixel_sdk_custom_interfaces::msg::SetPosition();
-						message.id = screwMotorID;
-						message.position = screwMiddleTick + int(angle/degPrTick);
+						message.id = mScrewMotor;
+						message.position = mScrewMiddleTick + int(angle/mDegPrTick);
 						RCLCPP_INFO(this->get_logger(), "Publishing: id = '%d' , position = '%d'", message.id, message.position);
-						publisher_->publish(message);
+						mSetMotorPosPublisher->publish(message);
 						
 						usleep(GOTOWAITTIMEPERIOD);
 
 					} else {
-						RCLCPP_INFO(this->get_logger(), "Did not find label %d, but %d", looking_for_label, result);
+						RCLCPP_INFO(this->get_logger(), "Did not find label %d, but %d", mLookingForLabel, result);
 					}
 					if (++gotopos >= 7) {
 						gotopos = -1;
@@ -244,7 +245,7 @@ class MainController : public rclcpp::Node
 			cv::Mat img = cv_ptr->image;
 			std::vector<cv::Mat> channels(2);
 			cv::split(img, channels);
-			gray_ = channels[0];
+			mGray = channels[0];
 			
 
 			
@@ -257,18 +258,18 @@ class MainController : public rclcpp::Node
 			RCLCPP_INFO(this->get_logger(), "Going to pos: '%d'", msg->data);
 
 			auto message = dynamixel_sdk_custom_interfaces::msg::SetPosition();
-			message.id = motorID;
-			message.position = positions[msg->data % 7];
+			message.id = mTurnMotorID;
+			message.position = mPositions[msg->data % 7];
 			RCLCPP_INFO(this->get_logger(), "Publishing to motor: id = '%d' , position = '%d'", message.id, message.position);
-      		publisher_->publish(message);
+      		mSetMotorPosPublisher->publish(message);
 			
 			int32_t pos = -1;
 			auto request = std::make_shared<dynamixel_sdk_custom_interfaces::srv::GetPosition::Request>();
-			request->id = motorID;
+			request->id = mTurnMotorID;
 
 			while (pos < message.position - 3 || pos > message.position + 3) {
 
-				while (!client_->wait_for_service(1s)) {
+				while (!mGetPositionClient->wait_for_service(1s)) {
 					if (!rclcpp::ok()) {
 					RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
 						continue;
@@ -276,7 +277,7 @@ class MainController : public rclcpp::Node
 					RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
 				}
 
-				auto result = client_->async_send_request(request);
+				auto result = mGetPositionClient->async_send_request(request);
 				std::future_status status = result.wait_for(1s);
 				if (status == std::future_status::ready) {
 					//RCLCPP_INFO(this->get_logger(), "Received response");
@@ -287,10 +288,10 @@ class MainController : public rclcpp::Node
 			}
 			RCLCPP_INFO(this->get_logger(), "Reached pos %d", msg->data);
 			usleep(TIMEPERIOD);
-			//std::string filename = directory + "img" + std::to_string(i++) + "_" + std::to_string(pos) +".png";
-			cv::resize(gray_, gray_to_be_used_, cv::Size(32, 24), cv::INTER_LINEAR);
-			newImageReady = true;
-			//cv::imwrite(filename, gray_);
+			//std::string filename = mDirectoryForImages + "img" + std::to_string(i++) + "_" + std::to_string(pos) +".png";
+			cv::resize(mGray, mGrayToBeUsed, cv::Size(32, 24), cv::INTER_LINEAR);
+			mNewImageFound = true;
+			//cv::imwrite(filename, mGray);
 
 
 		}
@@ -303,13 +304,13 @@ int main(int argc, char *argv[])
 {
 	setvbuf(stdout,NULL,_IONBF,BUFSIZ);
 	rclcpp::init(argc, argv);
-    auto client_node = std::make_shared<MainController>();
+    auto clientNode = std::make_shared<MainController>();
     rclcpp::executors::MultiThreadedExecutor executor;
-    executor.add_node(client_node);
+    executor.add_node(clientNode);
 
-    RCLCPP_INFO(client_node->get_logger(), "Starting client node, shut down with CTRL-C");
+    RCLCPP_INFO(clientNode->get_logger(), "Starting client node, shut down with CTRL-C");
     executor.spin();
-    RCLCPP_INFO(client_node->get_logger(), "Keyboard interrupt, shutting down.\n");
+    RCLCPP_INFO(clientNode->get_logger(), "Keyboard interrupt, shutting down.\n");
 
     rclcpp::shutdown();
 	return 0;
