@@ -44,15 +44,15 @@ class MainController : public rclcpp::Node
 			mReentrantCBGgroup = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
 			mMutualexcCBGroup = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
-			rclcpp::SubscriptionOptions options_sub_reentrant;
-			options_sub_reentrant.callback_group = mReentrantCBGgroup;
-			rclcpp::SubscriptionOptions options_sub_mutualexc;
-			options_sub_mutualexc.callback_group = mMutualexcCBGroup;
+			rclcpp::SubscriptionOptions optionsSubscriberReentrant;
+			optionsSubscriberReentrant.callback_group = mReentrantCBGgroup;
+			rclcpp::SubscriptionOptions optionsSubscriberMutualExclusive;
+			optionsSubscriberMutualExclusive.callback_group = mMutualexcCBGroup;
 
 			RCLCPP_INFO(this->get_logger(), "Starting starter subscription");
-			mStartMainSubscriber = this->create_subscription<std_msgs::msg::Int32>("start", 10, std::bind(&MainController::start_callback, this, _1), options_sub_mutualexc);
+			mStartMainSubscriber = this->create_subscription<std_msgs::msg::Int32>("start", 10, std::bind(&MainController::start_callback, this, _1), optionsSubscriberMutualExclusive);
 			RCLCPP_INFO(this->get_logger(), "Starting position subscription");
-			mGotoSubscriber = this->create_subscription<std_msgs::msg::Int32>("gotopos", 10, std::bind(&MainController::gotorequest_callback, this, _1), options_sub_reentrant);
+			mGotoSubscriber = this->create_subscription<std_msgs::msg::Int32>("gotopos", 10, std::bind(&MainController::gotorequest_callback, this, _1), optionsSubscriberReentrant);
 			RCLCPP_INFO(this->get_logger(), "Starting position publisher");
 			mSetMotorPosPublisher = this->create_publisher<dynamixel_sdk_custom_interfaces::msg::SetPosition>("set_position", 10);
 			RCLCPP_INFO(this->get_logger(), "Starting gotopos publisher");
@@ -60,7 +60,7 @@ class MainController : public rclcpp::Node
 			RCLCPP_INFO(this->get_logger(), "Starting client for getting position");
 			mGetPositionClient = this->create_client<dynamixel_sdk_custom_interfaces::srv::GetPosition>("get_position", rmw_qos_profile_services_default, mReentrantCBGgroup);
 			RCLCPP_INFO(this->get_logger(), "Starting camera subscriber");
-			mCameraSubscriber = this->create_subscription<sensor_msgs::msg::Image>("/image_raw", 10,	std::bind(&MainController::onImageMsg, this, std::placeholders::_1), options_sub_reentrant);
+			mCameraSubscriber = this->create_subscription<sensor_msgs::msg::Image>("/image_raw", 10,	std::bind(&MainController::onImageMsg, this, std::placeholders::_1), optionsSubscriberReentrant);
 
 			mDirectoryForImages = "gray_images/" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + "/";
 			mkdir(mDirectoryForImages.c_str(), 0777);
