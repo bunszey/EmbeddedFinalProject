@@ -22,8 +22,15 @@ def generate_launch_description():
         executable="read_write_node",
         name="motor_node",
     )
+    
+    maincontrol_node = Node(
+        package="dynamixel_sdk_maincontroller",
+        executable="main_controller",
+        name="maincontrol_node",
+    )
 
     return LaunchDescription([
         cam_node,
         motor_node,
+        maincontrol_node,
     ])

@@ -124,12 +124,12 @@ ReadWriteNode::ReadWriteNode()
         &dxl_error
       );
 
-      RCLCPP_INFO(
+     /*  RCLCPP_INFO(
         this->get_logger(),
         "Get [ID: %d] [Present Position: %d]",
         request->id,
         present_position
-      );
+      ); */
 
       response->position = present_position;
     };

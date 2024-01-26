@@ -85,12 +85,43 @@ class MainController : public rclcpp::Node
 		std::string mDirectoryForImages;
 		cv::Mat mGray;
 		cv::Mat mGrayToBeUsed;
+		cv::Mat mGrayToBeUsedFullSize;
 
 		bool mNewImageFound = false;
 		int i = 0;
 		
 		int mLookingForLabel = -1;
 		
+		int moveMotor(int motorID, int position){
+			int32_t pos = -1;
+			auto request = std::make_shared<dynamixel_sdk_custom_interfaces::srv::GetPosition::Request>();
+			request->id = motorID;
+
+			while (pos < position - 3 || pos > position + 3) {
+
+				while (!mGetPositionClient->wait_for_service(1s)) {
+					if (!rclcpp::ok()) {
+					RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
+						continue;
+					}
+					RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
+				}
+
+				auto result = mGetPositionClient->async_send_request(request);
+				std::future_status status = result.wait_for(1s);
+				if (status == std::future_status::ready) {
+					//RCLCPP_INFO(this->get_logger(), "Received response");
+					pos = result.get()->position;
+					
+				}
+				
+			}
+			RCLCPP_INFO(this->get_logger(), "Motor %d reached pos %d", motorID, pos);
+			usleep(TIMEPERIOD);
+
+			return 0;
+		}
+
 		int getAngleFromImage(cv::Mat imageInput, int screwType = 0) {
 			// define constants
 			int cannyDiff = 0;
@@ -100,6 +131,7 @@ class MainController : public rclcpp::Node
 			int cannyThreshold;
 			int houghMinLineLength;
 			int houghMaxLineGap;
+			double angle = 0;
 
 			switch (screwType) {
 				case 0:
@@ -108,6 +140,7 @@ class MainController : public rclcpp::Node
 					cannyThreshold = 50;
 					houghMinLineLength = 10;
 					houghMaxLineGap = 10;
+					angle += 30;
 					break;
 				case 1:
 					// Slotted hex
@@ -180,7 +213,7 @@ class MainController : public rclcpp::Node
 			}
 
 			// Find angle of line in degrees
-			double angle = atan2(lines[minIndex][3] - lines[minIndex][1], lines[minIndex][2] - lines[minIndex][0]) * 180.0 / CV_PI;
+			angle += atan2(lines[minIndex][3] - lines[minIndex][1], lines[minIndex][2] - lines[minIndex][0]) * 180.0 / CV_PI;
 
 			return -angle;
 		}
@@ -209,6 +242,7 @@ class MainController : public rclcpp::Node
 					mNewImageFound = false;
 					RCLCPP_INFO(this->get_logger(), "NewImgReady and being processed");
 					cv::imwrite("img"+to_string(gotopos)+".png", mGrayToBeUsed);
+					cv::imwrite("img"+to_string(gotopos)+"fullsize.png", mGrayToBeUsedFullSize);
 
 					int noOfPixels = mGrayToBeUsed.rows * mGrayToBeUsed.cols;
 
@@ -227,13 +261,12 @@ class MainController : public rclcpp::Node
 					}
 					usleep(BRAMWAITPERIOD);
 
-					int32_t result = BRAM1[127];
+					int32_t result = BRAM1[128];
 
 					if (result == mLookingForLabel) {
-						RCLCPP_INFO(this->get_logger(), "Found label %d", result);
 						//Code for rotating motor based on vision
-						int angle = getAngleFromImage(mGrayToBeUsed);
-						RCLCPP_INFO(this->get_logger(), "Angle is %d", angle);
+						int angle = getAngleFromImage(mGrayToBeUsedFullSize, mLookingForLabel);
+						RCLCPP_INFO(this->get_logger(), "Found label %d, Angle is %d", result, angle);
 
 						auto message = dynamixel_sdk_custom_interfaces::msg::SetPosition();
 						message.id = mScrewMotor;
@@ -241,13 +274,14 @@ class MainController : public rclcpp::Node
 						RCLCPP_INFO(this->get_logger(), "Publishing: id = '%d' , position = '%d'", message.id, message.position);
 						mSetMotorPosPublisher->publish(message);
 						
-						usleep(GOTOWAITTIMEPERIOD);
+						moveMotor(message.id, message.position);
 
 					} else {
 						RCLCPP_INFO(this->get_logger(), "Did not find label %d, but %d", mLookingForLabel, result);
 					}
 					if (++gotopos >= 7) {
 						gotopos = -1;
+						mLookingForLabel = -1;
 					}
 
 				}
@@ -273,41 +307,18 @@ class MainController : public rclcpp::Node
 			if (msg->data < 0 || msg->data > 6){
 				return;
 			}
-			RCLCPP_INFO(this->get_logger(), "Going to pos: '%d'", msg->data);
 
 			auto message = dynamixel_sdk_custom_interfaces::msg::SetPosition();
 			message.id = mTurnMotorID;
 			message.position = mPositions[msg->data % 7];
-			RCLCPP_INFO(this->get_logger(), "Publishing to motor: id = '%d' , position = '%d'", message.id, message.position);
+			RCLCPP_INFO(this->get_logger(), "Going to pos: '%d', Publishing to motor: id = '%d' , position = '%d'", msg->data, message.id, message.position);
       		mSetMotorPosPublisher->publish(message);
 			
-			int32_t pos = -1;
-			auto request = std::make_shared<dynamixel_sdk_custom_interfaces::srv::GetPosition::Request>();
-			request->id = mTurnMotorID;
+			moveMotor(mTurnMotorID, message.position);
 
-			while (pos < message.position - 3 || pos > message.position + 3) {
-
-				while (!mGetPositionClient->wait_for_service(1s)) {
-					if (!rclcpp::ok()) {
-					RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
-						continue;
-					}
-					RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
-				}
-
-				auto result = mGetPositionClient->async_send_request(request);
-				std::future_status status = result.wait_for(1s);
-				if (status == std::future_status::ready) {
-					//RCLCPP_INFO(this->get_logger(), "Received response");
-					pos = result.get()->position;
-					
-				}
-				
-			}
-			RCLCPP_INFO(this->get_logger(), "Reached pos %d", msg->data);
-			usleep(TIMEPERIOD);
 			//std::string filename = mDirectoryForImages + "img" + std::to_string(i++) + "_" + std::to_string(pos) +".png";
 			cv::resize(mGray, mGrayToBeUsed, cv::Size(32, 24), cv::INTER_LINEAR);
+			mGrayToBeUsedFullSize = mGray;
 			mNewImageFound = true;
 			//cv::imwrite(filename, mGray);
 
