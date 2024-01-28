@@ -44,5 +44,5 @@ ros2 topic pub -1 /gotopos std_msgs/Int32 "{data: 1}"
 
 ## Terminal send ROS message to start system
 ```bash
-ros2 topic pub -1 /start std_msgs/String "{data: start}"
+ros2 topic pub -1 /start std_msgs/String "{data: 0}"
 ```
